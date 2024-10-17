@@ -3,7 +3,9 @@ TASKS = {
         "create my todo list today",
         "create today list",
         "start a new todo list",
-        "make a todo list"
+        "make a todo list",
+        "add my task",
+        "add my work"
     ],
     "fetch_todo": [
         "get my data",
@@ -21,12 +23,14 @@ TASKS = {
         "delete todo list",
         "delete to-do list",
         "remove todo list",
-        "clear todo list"
+        "clear todo list",
+        "remove work"
     ],
     "update_todo": [
         "update todo list",
         "modify todo list",
-        "edit my todo list"
+        "edit my todo list",
+        "update"
     ]
 }
 

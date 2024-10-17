@@ -7,13 +7,16 @@ from actions.system import shutdown, restart,execute_pending_action,request_conf
 from intents.confirm import detect_confirmation
 from actions.tasks import add_todo
 from intents.tasks import task_matched
-from actions.tasks import delete_todo_list,execute_todo_delete_confirmation,get_todo
+from actions.tasks import *
 engine=tts.init();
 recognizer= sr.Recognizer();
 pending_confirmation = False
 todo_confirmation = False
 task_adding=False
-
+is_provided_id=False
+is_updating=False
+_is_providing_title=False
+data={}
 def speak_as_ai(text):
     print("")
     print("AI SPEAKING....")
@@ -22,15 +25,37 @@ def speak_as_ai(text):
     engine.stop();
 def handle_intent(text):
     """Handles detected intents by executing corresponding actions."""
-    global pending_confirmation,todo_confirmation,task_adding
-   
+    global pending_confirmation,todo_confirmation,task_adding,is_provided_id,is_updating,_is_providing_title,data
+    
     # for todo list
+    if _is_providing_title:
+        data['title'] = text
+        print("data updating ",data)
+        data =update_todo(data=data)
+        speak_as_ai(data)
+        is_updating = False
+        _is_providing_title=False
+        data={}
+    if is_updating:
+        _id = text
+        data["id"]=_id;
+        speak_as_ai("Provide updated title")
+        _is_providing_title=True
+
+        
+        
+
+    if is_provided_id:
+         data =execute_todo_delete_confirmation(todo_id=text)
+         speak_as_ai(data)
+         todo_confirmation = False
+         is_provided_id = False
     
     if todo_confirmation:
         confirmation = detect_confirmation(text)
         if confirmation == "yes":
-                execute_todo_delete_confirmation()
-                todo_confirmation = False
+                speak_as_ai("Please Provide The ID you want to delete")
+                is_provided_id=True     
         elif confirmation == "no":
                 speak_as_ai("Todo deletion canceled.")
                 todo_confirmation = False
@@ -53,9 +78,8 @@ def handle_intent(text):
                 return
 
     if task_adding:
-        todo_added=add_todo({"todo": text})
-        print("The todo is ",todo_added)
-        speak_as_ai("Added The Todo List Titled By "+text + " You can fetch now")
+        response_todo=add_todo({"task": text})
+        speak_as_ai(response_todo)
         task_adding=False
       
     
@@ -66,13 +90,18 @@ def handle_intent(text):
     if task_id in ["delete_todo"]:
         request_confirmation("delete this todo list")
         todo_confirmation=True
-    if task_id in ["create_todo"]:
-        speak_as_ai("Please Tell The Todo Name or the title to be stored")
+    elif task_id in ["create_todo"]:
+        speak_as_ai("Please Tell me the Todo title to be stored")
         task_adding=True
 
-    if task_id in ["fetch_todo"]:
+    elif task_id in ["update_todo"]:
+        speak_as_ai("Provide the id you want to update")
+        is_updating=True
+
+    elif task_id in ["fetch_todo"]:
+        data =get_todo()
         speak_as_ai("Now You Can see the todos in the terminal")
-        print(get_todo())
+        print(data)
 
         
     system_command = detect_system_command(text)
@@ -86,15 +115,22 @@ def handle_intent(text):
 
 def recognize_text():
    
-    with sr.Microphone() as source:
-        recognizer.adjust_for_ambient_noise(source)
-        print("Listening")
+    try:
+        with sr.Microphone() as source:
+            recognizer.adjust_for_ambient_noise(source, duration=1)
+            recognizer.energy_threshold = 3000
+            print("Listening")
+            audio = recognizer.listen(source=source,timeout=6, phrase_time_limit=10);
 
-        audio = recognizer.listen(source=source);
+            transcribed= recognizer.recognize_google(audio)
 
-        transcribed= recognizer.recognize_google(audio)
-
-        return transcribed
+            return transcribed
+    except sr.UnknownValueError:
+        speak_as_ai("I dont understand, Please try again");
+        return None
+    except sr.RequestError:
+        speak_as_ai("Something went wrong. Please try again")
+        return None
 
 def is_terminate(text,data):
     token =text.split();
@@ -109,11 +145,12 @@ def listen_source():
     while True:
         q =["q","quit","exit"]
         text =recognize_text();
-        print("You Said: ->",text)
-        
-        if is_terminate(text,q):
-            break
-        handle_intent(text)
+        if text:
+            print("You Said: ->",text)
+            
+            if is_terminate(text,q):
+                break
+            handle_intent(text)
 
 
 listen_source()
