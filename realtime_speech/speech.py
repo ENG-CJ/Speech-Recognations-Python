@@ -8,6 +8,7 @@ from intents.confirm import detect_confirmation
 from actions.tasks import add_todo
 from intents.tasks import task_matched
 from actions.tasks import *
+from machine_intents.machine import *
 engine=tts.init();
 recognizer= sr.Recognizer();
 pending_confirmation = False
@@ -26,7 +27,8 @@ def speak_as_ai(text):
 def handle_intent(text):
     """Handles detected intents by executing corresponding actions."""
     global pending_confirmation,todo_confirmation,task_adding,is_provided_id,is_updating,_is_providing_title,data
-    
+    # custom machine learning intents
+   
     # for todo list
     if _is_providing_title:
         data['title'] = text
@@ -36,11 +38,13 @@ def handle_intent(text):
         is_updating = False
         _is_providing_title=False
         data={}
+        return
     if is_updating:
         _id = text
         data["id"]=_id;
         speak_as_ai("Provide updated title")
         _is_providing_title=True
+        return
 
         
         
@@ -50,6 +54,7 @@ def handle_intent(text):
          speak_as_ai(data)
          todo_confirmation = False
          is_provided_id = False
+         return
     
     if todo_confirmation:
         confirmation = detect_confirmation(text)
@@ -77,40 +82,53 @@ def handle_intent(text):
                 speak_as_ai("Please confirm by saying yes or no.")
                 return
 
+
     if task_adding:
         response_todo=add_todo({"task": text})
         speak_as_ai(response_todo)
         task_adding=False
+        return
       
     
     if detect_greeting(text):
         greet()
+        return
 
     task_id = task_matched(text=text)
     if task_id in ["delete_todo"]:
         request_confirmation("delete this todo list")
         todo_confirmation=True
+        return
     elif task_id in ["create_todo"]:
         speak_as_ai("Please Tell me the Todo title to be stored")
         task_adding=True
+        return
+        
 
     elif task_id in ["update_todo"]:
         speak_as_ai("Provide the id you want to update")
         is_updating=True
+        return
 
     elif task_id in ["fetch_todo"]:
         data =get_todo()
         speak_as_ai("Now You Can see the todos in the terminal")
         print(data)
+        return
 
         
     system_command = detect_system_command(text)
     if system_command == "shutdown":
         pending_confirmation=True
         request_confirmation("shutdown")
+        return
     elif system_command == "restart":
         pending_confirmation=True
         request_confirmation("restart")
+        return
+
+    response,intent = predict_intent(text=text)
+    speak_as_ai(response)
 
 
 def recognize_text():
